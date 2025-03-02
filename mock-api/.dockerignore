@@ -2,3 +2,5 @@ __pycache__/
 *.log
 *.sqlite3
 *.env
+tests/
+.git/

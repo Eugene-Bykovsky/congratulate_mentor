@@ -6,3 +6,5 @@ services:
     restart: always
     ports:
       - '8000:8000'
+    volumes:
+      - ./mock-api/data.json:/app/data.json

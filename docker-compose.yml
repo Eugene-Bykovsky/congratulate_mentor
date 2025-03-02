@@ -8,3 +8,23 @@ services:
       - '8000:8000'
     volumes:
       - ./mock-api/data.json:/app/data.json
+    networks:
+      - app-network
+
+  bot:
+    build: ./bot
+    volumes:
+      - db_data:/app/db.sqlite3
+    environment:
+      DB_URL: "sqlite:///db.sqlite3"
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+
+
+volumes:
+  db_data:
+
+networks:
+  app-network:

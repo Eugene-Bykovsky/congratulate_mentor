@@ -1,6 +1,5 @@
 from environs import Env
 from aiogram import Router, types
-from aiogram.fsm.context import FSMContext
 from aiogram.filters import CommandStart
 
 from libs.api_tools import fetch_mentors

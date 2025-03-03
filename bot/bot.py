@@ -5,6 +5,7 @@ import logging
 from asyncio import run
 
 from app.handlers.start_handlers import start_router
+from app.handlers.mentor_handlers import mentor_router
 
 
 async def main():
@@ -20,7 +21,7 @@ async def main():
     logging.info("Бот запущен!")
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
-    dp.include_routers(start_router)
+    dp.include_routers(start_router, mentor_router)
 
     await dp.start_polling(bot)
 

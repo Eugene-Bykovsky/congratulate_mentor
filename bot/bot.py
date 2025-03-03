@@ -4,7 +4,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 import logging
 from asyncio import run
 
-from app.handlers import start_handlers, mentor_handlers
+from app.handlers.start_handlers import start_router
 
 
 async def main():
@@ -20,7 +20,7 @@ async def main():
     logging.info("Бот запущен!")
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
-    dp.include_routers(start_handlers, mentor_handlers)
+    dp.include_routers(start_router)
 
     await dp.start_polling(bot)
 

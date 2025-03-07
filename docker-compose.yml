@@ -13,10 +13,6 @@ services:
 
 #  bot:
 #    build: ./bot
-#    volumes:
-#      - db_data:/app/db.sqlite3
-#    environment:
-#      DB_URL: "sqlite:///db.sqlite3"
 #    ports:
 #      - "8080:8080"
 #    networks:

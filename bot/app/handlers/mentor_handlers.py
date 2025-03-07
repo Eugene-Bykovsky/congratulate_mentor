@@ -1,4 +1,4 @@
-from aiogram import Router, types
+from aiogram import Router, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from environs import Env
@@ -12,6 +12,8 @@ env.read_env()
 API_URL = env.str('API_URL', 'http://localhost:8000')
 
 mentor_router = Router()
+
+bot = Bot(token=env.str('TELEGRAM_BOT_TOKEN'))
 
 
 class SendPostcardStates(StatesGroup):

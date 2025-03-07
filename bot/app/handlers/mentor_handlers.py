@@ -56,15 +56,22 @@ async def show_mentor_list(context, state, page=1):
 
     for mentor in current_mentors:
         name = mentor['name']
+        tg_username = mentor.get('tg_username', "")
+
         words = name.split()
         if len(words) > 2:
             displayed_name = f"{words[0]} {words[1]}..."
         else:
             displayed_name = name
 
+        if tg_username:
+            displayed_text = f"{displayed_name} ({tg_username})"
+        else:
+            displayed_text = displayed_name
+
         keyboard.inline_keyboard.append([
             InlineKeyboardButton(
-                text=displayed_name,
+                text=displayed_text,
                 callback_data=f"select_mentor_{mentor['id']}"
             )
         ])

@@ -13,12 +13,13 @@ API_URL = env.str('API_URL', 'http://localhost:8000')
 
 mentor_router = Router()
 
-MENTORS_PER_PAGE = 5
-
 
 class SendPostcardStates(StatesGroup):
     waiting_for_mentor = State()
     waiting_for_postcard = State()
+
+
+MENTORS_PER_PAGE = 5
 
 
 @mentor_router.callback_query(lambda c: c.data == "list_mentors")
@@ -51,14 +52,22 @@ async def show_mentor_list(context, state, page=1):
     end = page * MENTORS_PER_PAGE
     current_mentors = mentors[start:end]
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+
+    for mentor in current_mentors:
+        name = mentor['name']
+        words = name.split()
+        if len(words) > 2:
+            displayed_name = f"{words[0]} {words[1]}..."
+        else:
+            displayed_name = name
+
+        keyboard.inline_keyboard.append([
             InlineKeyboardButton(
-                text=f"{mentor['name']}",
+                text=displayed_name,
                 callback_data=f"select_mentor_{mentor['id']}"
             )
-        ] for mentor in current_mentors
-    ])
+        ])
 
     navigation_buttons = []
     if total_pages > 1:

@@ -27,6 +27,6 @@ async def send_welcome(message: types.Message):
         welcome_message += "Я вижу, что ты ментор! 😊\n"
     else:
         welcome_message += ("Добро пожаловать в наш бот для поздравлений "
-                            "менторов!\n ")
+                            "менторов, ученик!\n")
 
     await message.reply(welcome_message, reply_markup=kb.main_menu_keyboard)

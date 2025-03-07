@@ -4,17 +4,13 @@ import requests
 def fetch_data(api_url, endpoint, headers=None):
     if headers is None:
         headers = {}
-
     try:
         response = requests.get(f'{api_url}{endpoint}', headers=headers)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Ошибка при получении данных. Код ответа: {response.status_code}")
-            return []
+        response.raise_for_status()
+        return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Произошла ошибка подключения к API: {e}")
-        return []
+        print(f"Ошибка при подключении к API: {e}")
+        return None
 
 
 def fetch_mentors(api_url, headers=None):

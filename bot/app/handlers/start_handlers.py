@@ -15,10 +15,14 @@ API_URL = env.str('API_URL', 'http://localhost:8000')
 
 @start_router.message(CommandStart())
 async def send_welcome(message: types.Message):
+    mentors = fetch_mentors(API_URL)
+    if mentors is None:
+        await message.reply("Не удалось подключиться к серверу. Попробуйте "
+                            "позже.")
+        return
+
     telegram_id = message.from_user.id
     user_name = message.from_user.first_name
-    mentors = fetch_mentors(API_URL)
-
     is_mentor = any(str(telegram_id) == str(mentor.get('telegram_id'))
                     for mentor in mentors)
 

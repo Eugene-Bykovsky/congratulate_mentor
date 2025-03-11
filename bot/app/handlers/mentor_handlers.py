@@ -152,7 +152,9 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
         mentors = fetch_mentors(API_URL)
         if mentors is None:
             await callback.message.answer(
-                "Не удалось подключиться к серверу. Попробуйте позже.")
+                "Сервер временно недоступен. Список менторов не загружен. "
+                "Попробуйте позже."
+            )
             return
         mentor = next((m for m in mentors if m['id'] == mentor_id), None)
         if not mentor:
@@ -163,7 +165,9 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
         postcards = fetch_postcards(API_URL)
         if postcards is None:
             await callback.message.answer(
-                "Не удалось подключиться к серверу. Попробуйте позже.")
+                "Сервер временно недоступен. Список открыток не загружен. "
+                "Попробуйте позже."
+            )
             return
         postcard = next((p for p in postcards if p['id'] == postcard_id), None)
         if not postcard:

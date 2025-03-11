@@ -1,0 +1,44 @@
+{
+  "mentors": [
+    {
+      "id": 1,
+      "name": {
+        "first": "Иван",
+        "second": "Петряков"
+      },
+      "tg_username": "@i_petr",
+      "tg_chat_id": 213123131,
+      "bday": "1991-02-23"
+    },
+    {
+      "id": 2,
+      "name": {
+        "first": "Катя",
+        "second": "Иванова"
+      },
+      "tg_username": "@katie",
+      "tg_chat_id": 213123132,
+      "bday": "1995-05-15"
+    },
+    {
+      "id": 3,
+      "name": {
+        "first": "Амир",
+        "second": "Амиров"
+      },
+      "tg_username": "@aarr",
+      "tg_chat_id": 213123133,
+      "bday": "1995-09-01"
+    },
+        {
+      "id": 4,
+      "name": {
+        "first": "Евгений",
+        "second": "Быковский"
+      },
+      "tg_username": "@EugeneBu",
+      "tg_chat_id": 534211907,
+      "bday": "1991-08-24"
+    }
+  ]
+}

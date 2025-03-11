@@ -7,7 +7,7 @@ services:
     ports:
       - '8000:8000'
     volumes:
-      - ./mock-api/data.json:/app/data.json
+       - ./mock-api/test_data:/app/test_data
 #    networks:
 #      - app-network
 

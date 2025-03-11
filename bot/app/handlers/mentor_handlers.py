@@ -1,10 +1,11 @@
 from aiogram import Router, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.filters import StateFilter
 from environs import Env
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from libs.api_tools import fetch_mentors, fetch_postcards
+from libs.api_client import fetch_mentors, fetch_postcards
 
 env = Env()
 env.read_env()
@@ -19,7 +20,7 @@ class SendPostcardStates(StatesGroup):
     waiting_for_postcard = State()
 
 
-MENTORS_PER_PAGE = 5
+MENTORS_PER_PAGE = 2
 
 
 @mentor_router.callback_query(lambda c: c.data == "list_mentors")
@@ -55,14 +56,14 @@ async def show_mentor_list(context, state, page=1):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
 
     for mentor in current_mentors:
-        name = mentor['name']
+        full_name = f"{mentor['name']['first']} {mentor['name']['second']}"
         tg_username = mentor.get('tg_username', "")
 
-        words = name.split()
+        words = full_name.split()
         if len(words) > 2:
             displayed_name = f"{words[0]} {words[1]}..."
         else:
-            displayed_name = name
+            displayed_name = full_name
 
         if tg_username:
             displayed_text = f"{displayed_name} ({tg_username})"
@@ -98,8 +99,10 @@ async def show_mentor_list(context, state, page=1):
     await state.set_state(SendPostcardStates.waiting_for_mentor)
 
 
-@mentor_router.callback_query(lambda c: c.data.startswith("select_mentor_"),
-                              SendPostcardStates.waiting_for_mentor)
+@mentor_router.callback_query(
+    lambda c: c.data.startswith("select_mentor_"),
+    StateFilter(SendPostcardStates.waiting_for_mentor)
+)
 async def select_mentor(callback: types.CallbackQuery, state: FSMContext):
     try:
         mentor_id = int(callback.data.split("_")[-1])
@@ -117,9 +120,9 @@ async def select_mentor(callback: types.CallbackQuery, state: FSMContext):
 
         postcard_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=f"{postcard['name']}",
-                                      callback_data=f"select_postcard_"
-                                                    f"{postcard['id']}")]
+                [InlineKeyboardButton(text=postcard['name_ru'],
+                                      callback_data=f"select_postcard"
+                                                    f"_{postcard['id']}")]
                 for postcard in postcards
             ]
         )
@@ -131,8 +134,10 @@ async def select_mentor(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.answer("Произошла ошибка при выборе ментора.")
 
 
-@mentor_router.callback_query(lambda c: c.data.startswith("select_postcard_"),
-                              SendPostcardStates.waiting_for_postcard)
+@mentor_router.callback_query(
+    lambda c: c.data.startswith("select_postcard_"),
+    StateFilter(SendPostcardStates.waiting_for_postcard)
+)
 async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
                           bot: Bot):
     try:
@@ -146,8 +151,8 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
 
         mentors = fetch_mentors(API_URL)
         if mentors is None:
-            await callback.message.answer("Не удалось подключиться к "
-                                          "серверу. Попробуйте позже.")
+            await callback.message.answer(
+                "Не удалось подключиться к серверу. Попробуйте позже.")
             return
         mentor = next((m for m in mentors if m['id'] == mentor_id), None)
         if not mentor:
@@ -157,26 +162,28 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
 
         postcards = fetch_postcards(API_URL)
         if postcards is None:
-            await callback.message.answer("Не удалось подключиться к "
-                                          "серверу. Попробуйте позже.")
+            await callback.message.answer(
+                "Не удалось подключиться к серверу. Попробуйте позже.")
             return
         postcard = next((p for p in postcards if p['id'] == postcard_id), None)
         if not postcard:
-            await callback.message.answer("Открытка не найдена. Попробуйте "
-                                          "снова.")
+            await callback.message.answer(
+                "Открытка не найдена. Попробуйте снова.")
             return
 
-        mentor_chat_id = mentor.get('chat_id')
+        # Используем tg_chat_id вместо chat_id
+        mentor_chat_id = mentor.get('tg_chat_id')
         if not mentor_chat_id:
-            await callback.message.answer(f"Не удалось найти chat_id для "
-                                          f"ментора {mentor['name']}.")
+            await callback.message.answer(
+                f"Не удалось найти chat_id для ментора"
+                f" {mentor['name']['first']} {mentor['name']['second']}.")
             return
 
         try:
             await bot.send_message(
                 chat_id=mentor_chat_id,
-                text=f"Тебе отправили открытку: "
-                     f"\"{postcard['name']}\"\n\n{postcard['body']}"
+                text=f"Тебе отправили открытку:"
+                     f" \"{postcard['name_ru']}\"\n\n{postcard['body']}"
             )
         except Exception as e:
             await callback.message.answer(
@@ -184,8 +191,8 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
             return
 
         await callback.message.answer(
-            f"Открытка \"{postcard['name']}\" успешно отправлена "
-            f"ментору {mentor['name']}!"
+            f"Открытка \"{postcard['name_ru']}\" успешно отправлена ментору"
+            f" {mentor['name']['first']} {mentor['name']['second']}!"
         )
         await state.clear()
     except Exception as e:

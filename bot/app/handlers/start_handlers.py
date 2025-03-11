@@ -2,7 +2,7 @@ from environs import Env
 from aiogram import Router, types
 from aiogram.filters import CommandStart
 
-from libs.api_tools import fetch_mentors
+from libs.api_client import fetch_mentors
 import app.keyboards as kb
 
 start_router = Router()
@@ -23,7 +23,7 @@ async def send_welcome(message: types.Message):
 
     telegram_id = message.from_user.id
     user_name = message.from_user.first_name
-    is_mentor = any(str(telegram_id) == str(mentor.get('telegram_id'))
+    is_mentor = any(str(telegram_id) == str(mentor.get('tg_chat_id'))
                     for mentor in mentors)
 
     welcome_message = f"Привет, {user_name}!\n"

@@ -1,3 +1,4 @@
+import logging
 from aiogram import Router, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -5,7 +6,9 @@ from aiogram.filters import StateFilter
 from environs import Env
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from libs.api_client import fetch_mentors, fetch_postcards
+from libs.api_client import (fetch_mentors, fetch_postcards,
+                             extract_holidays_from_postcards)
+from libs.utils import get_shortened_body, replace_placeholder
 
 env = Env()
 env.read_env()
@@ -17,31 +20,34 @@ mentor_router = Router()
 
 class SendPostcardStates(StatesGroup):
     waiting_for_mentor = State()
+    waiting_for_holiday = State()  # Новое состояние для выбора праздника
     waiting_for_postcard = State()
 
 
 MENTORS_PER_PAGE = 2
 
 
+# Обработчик списка менторов
 @mentor_router.callback_query(lambda c: c.data == "list_mentors")
 async def list_mentors(callback: types.CallbackQuery, state: FSMContext):
     await show_mentor_list(callback, state, page=1)
 
 
-@mentor_router.callback_query(lambda c: c.data.startswith("page_"))
-async def navigate_pages(callback: types.CallbackQuery, state: FSMContext):
-    page = int(callback.data.split("_")[1])
-    await show_mentor_list(callback, state, page=page)
-
-
-async def show_mentor_list(context, state, page=1):
+# Функция показа списка менторов
+async def show_mentor_list(callback: types.CallbackQuery, state, page=1):
     mentors = fetch_mentors(API_URL)
     if mentors is None:
-        await context.message.answer(
-            "Не удалось подключиться к серверу. Попробуйте позже.")
+        await callback.answer(
+            "Не удалось подключиться к серверу. Попробуйте позже.",
+            show_alert=True)
         return
 
     total_mentors = len(mentors)
+    if total_mentors == 0:
+        await callback.answer("Список менторов пуст. Попробуйте позже.",
+                              show_alert=True)
+        return
+
     total_pages = (total_mentors + MENTORS_PER_PAGE - 1) // MENTORS_PER_PAGE
 
     if page < 1:
@@ -56,9 +62,14 @@ async def show_mentor_list(context, state, page=1):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[])
 
     for mentor in current_mentors:
+        logging.info(
+            f"Creating button for mentor: {mentor}")  # Логируем данные ментора
+        if not isinstance(mentor.get('id'), int):  # Защита от некорректного id
+            logging.error(f"Incorrect mentor ID: {mentor.get('id')}")
+            continue
+
         full_name = f"{mentor['name']['first']} {mentor['name']['second']}"
         tg_username = mentor.get('tg_username', "")
-
         words = full_name.split()
         if len(words) > 2:
             displayed_name = f"{words[0]} {words[1]}..."
@@ -77,6 +88,7 @@ async def show_mentor_list(context, state, page=1):
             )
         ])
 
+    # Добавляем кнопки навигации
     navigation_buttons = []
     if total_pages > 1:
         if page > 1:
@@ -89,14 +101,33 @@ async def show_mentor_list(context, state, page=1):
                 InlineKeyboardButton(text="Следующая →",
                                      callback_data=f"page_{page + 1}")
             )
-        keyboard.inline_keyboard.append(navigation_buttons)
+        if navigation_buttons:
+            keyboard.inline_keyboard.append(navigation_buttons)
 
-    await context.message.answer(
-        f"Страница {page} из {total_pages}\n\n"
-        "Выберите ментора:",
-        reply_markup=keyboard
-    )
+    try:
+        # Редактируем текущее сообщение
+        await callback.message.edit_text(
+            f"Страница {page} из {total_pages}\n\n"
+            "Выберите ментора:",
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        # Если редактирование невозможно, отправляем новое сообщение
+        await callback.message.answer(
+            f"Страница {page} из {total_pages}\n\n"
+            "Выберите ментора:",
+            reply_markup=keyboard
+        )
+
+    # Устанавливаем состояние ожидания выбора ментора
     await state.set_state(SendPostcardStates.waiting_for_mentor)
+
+
+# Обработчик навигации между страницами
+@mentor_router.callback_query(lambda c: c.data.startswith("page_"))
+async def navigate_pages(callback: types.CallbackQuery, state: FSMContext):
+    page = int(callback.data.split("_")[1])
+    await show_mentor_list(callback, state, page=page)
 
 
 @mentor_router.callback_query(
@@ -111,29 +142,108 @@ async def select_mentor(callback: types.CallbackQuery, state: FSMContext):
         postcards = fetch_postcards(API_URL)
         if postcards is None:
             await callback.message.answer(
-                "Не удалось подключиться к серверу. Попробуйте позже.")
+                "Не удалось загрузить открытки. Попробуйте позже.")
             return
-        if not postcards:
+
+        holidays = extract_holidays_from_postcards(postcards)
+        if not holidays:
             await callback.message.answer(
-                "Список открыток пуст. Попробуйте позже.")
+                "Не найдено ни одного праздника. Попробуйте позже.")
+            return
+
+        holiday_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=holiday['name_ru'],
+                                      callback_data=f"select_holiday_{holiday['id']}")]
+                for holiday in holidays
+            ]
+        )
+
+        # Подтверждаем выбор ментора и предлагаем выбрать праздник
+        mentors = fetch_mentors(API_URL)
+        if not mentors:
+            await callback.message.answer(
+                "Список менторов недоступен. Попробуйте позже.")
+            return
+
+        mentor = next((m for m in mentors if m['id'] == mentor_id), None)
+        if not mentor:
+            await callback.message.answer(
+                "Ментор не найден. Попробуйте снова.")
+            return
+
+        full_name = f"{mentor['name']['first']} {mentor['name']['second']}"
+        await callback.message.answer(
+            f"Вы выбрали ментора: {full_name}.\n\n"
+            "Теперь выберите праздник для открытки:",
+            reply_markup=holiday_keyboard
+        )
+        await state.set_state(SendPostcardStates.waiting_for_holiday)
+    except Exception as e:
+        await callback.message.answer(
+            f"Произошла ошибка: {str(e)}. Попробуйте позже.")
+
+
+@mentor_router.callback_query(
+    lambda c: c.data.startswith("select_holiday_"),
+    StateFilter(SendPostcardStates.waiting_for_holiday)
+)
+async def select_holiday(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        holiday_id = callback.data.split("_")[2]
+        await state.update_data(holiday_id=holiday_id)
+
+        postcards = fetch_postcards(API_URL)
+        if postcards is None:
+            await callback.message.answer(
+                "Не удалось загрузить открытки. Попробуйте позже.")
+            return
+
+        filtered_postcards = [p for p in postcards if
+                              p['holidayId'] == holiday_id]
+        if not filtered_postcards:
+            await callback.message.answer(
+                "Для этого праздника нет открыток. Попробуйте другой праздник.")
+            return
+
+        user_data = await state.get_data()
+        mentor_id = user_data.get("mentor_id")
+        mentors = fetch_mentors(API_URL)
+
+        if not mentors or not mentor_id:
+            await callback.message.answer(
+                "Ментор не выбран или данные недоступны. Начните сначала.")
+            return
+
+        mentor = next((m for m in mentors if m['id'] == mentor_id), None)
+        if not mentor:
+            await callback.message.answer(
+                "Ментор не найден. Попробуйте снова.")
             return
 
         postcard_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=postcard['name_ru'],
-                                      callback_data=f"select_postcard"
-                                                    f"_{postcard['id']}")]
-                for postcard in postcards
+                [
+                    InlineKeyboardButton(
+                        text=f"{get_shortened_body(replace_placeholder(postcard['body'], mentor['name']['first']))}",
+                        callback_data=f"select_postcard_{postcard['id']}"
+                    )
+                ]
+                for postcard in filtered_postcards
             ]
         )
 
-        await callback.message.answer("Выберите открытку для отправки:",
-                                      reply_markup=postcard_keyboard)
+        await callback.message.answer(
+            "Выберите открытку для отправки:",
+            reply_markup=postcard_keyboard
+        )
         await state.set_state(SendPostcardStates.waiting_for_postcard)
-    except ValueError:
-        await callback.message.answer("Произошла ошибка при выборе ментора.")
+    except Exception as e:
+        await callback.message.answer(
+            f"Произошла ошибка: {str(e)}. Попробуйте позже.")
 
 
+# Обработчик выбора открытки
 @mentor_router.callback_query(
     lambda c: c.data.startswith("select_postcard_"),
     StateFilter(SendPostcardStates.waiting_for_postcard)
@@ -156,6 +266,7 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
                 "Попробуйте позже."
             )
             return
+
         mentor = next((m for m in mentors if m['id'] == mentor_id), None)
         if not mentor:
             await callback.message.answer(
@@ -169,36 +280,46 @@ async def select_postcard(callback: types.CallbackQuery, state: FSMContext,
                 "Попробуйте позже."
             )
             return
+
         postcard = next((p for p in postcards if p['id'] == postcard_id), None)
         if not postcard:
             await callback.message.answer(
                 "Открытка не найдена. Попробуйте снова.")
             return
 
-        # Используем tg_chat_id вместо chat_id
+        # Получаем chat_id ментора
         mentor_chat_id = mentor.get('tg_chat_id')
         if not mentor_chat_id:
             await callback.message.answer(
-                f"Не удалось найти chat_id для ментора"
-                f" {mentor['name']['first']} {mentor['name']['second']}.")
+                f"Не удалось найти chat_id для ментора {mentor['name']['first']} {mentor['name']['second']}."
+            )
             return
 
+        # Формируем полное имя ментора
+        full_name = f"{mentor['name']['first']} {mentor['name']['second']}"
+
+        # Заменяем #name на имя ментора
+        personalized_body = replace_placeholder(postcard['body'], full_name)
+
         try:
+            # Отправляем открытку ментору с замененным текстом
             await bot.send_message(
                 chat_id=mentor_chat_id,
-                text=f"Тебе отправили открытку:"
-                     f" \"{postcard['name_ru']}\"\n\n{postcard['body']}"
+                text=f"Тебе отправили открытку: \"{postcard['name_ru']}\"\n\n{personalized_body}"
             )
         except Exception as e:
             await callback.message.answer(
-                f"Произошла ошибка при отправке: {str(e)}. Попробуйте позже.")
+                f"Произошла ошибка при отправке: {str(e)}. Попробуйте позже."
+            )
             return
 
+        # Подтверждаем отправку пользователю
         await callback.message.answer(
-            f"Открытка \"{postcard['name_ru']}\" успешно отправлена ментору"
-            f" {mentor['name']['first']} {mentor['name']['second']}!"
+            f"Открытка \"{postcard['name_ru']}\" успешно отправлена ментору "
+            f"{mentor['name']['first']} {mentor['name']['second']}!\n\n"
+            f"Текст открытки:\n{personalized_body}"
         )
         await state.clear()
     except Exception as e:
-        await callback.message.answer(
-            f"Произошла ошибка: {str(e)}. Попробуйте позже.")
+        await callback.message.answer(f"Произошла ошибка: {str(e)}. "
+                                      f"Попробуйте позже.")

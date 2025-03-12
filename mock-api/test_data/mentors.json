@@ -3,42 +3,70 @@
     {
       "id": 1,
       "name": {
-        "first": "Иван",
-        "second": "Петряков"
+        "first": "Евгений",
+        "second": "Devman"
       },
-      "tg_username": "@i_petr",
-      "tg_chat_id": 213123131,
+      "tg_username": "@eugene_dev",
+      "tg_chat_id": 41878799,
       "bday": "1991-02-23"
     },
     {
       "id": 2,
       "name": {
+        "first": "Ильмир",
+        "second": "Devman"
+      },
+      "tg_username": "@ilmir_dev",
+      "tg_chat_id": 6467718221
+    },
+    {
+      "id": 3,
+      "name": {
+        "first": "Нурбек",
+        "second": "Devman"
+      },
+      "tg_username": "@nurbek_dev",
+      "tg_chat_id": 335075762,
+      "bday": "1991-02-23"
+    },
+    {
+      "id": 4,
+      "name": {
         "first": "Катя",
         "second": "Иванова"
       },
       "tg_username": "@katie",
-      "tg_chat_id": 213123132,
-      "bday": "1995-05-15"
+      "tg_chat_id": 335000000
     },
     {
-      "id": 3,
+      "id": 5,
+      "name": {
+        "first": "Иван",
+        "second": "Петряков"
+      },
+      "tg_username": "@i_petr",
+      "bday": "1991-02-23",
+      "tg_chat_id": 335000001
+    },
+    {
+      "id": 6,
       "name": {
         "first": "Амир",
         "second": "Амиров"
       },
       "tg_username": "@aarr",
-      "tg_chat_id": 213123133,
-      "bday": "1995-09-01"
+      "bday": "1995-09-01",
+      "tg_chat_id": 335000002
     },
-        {
-      "id": 4,
+    {
+      "id": 7,
       "name": {
         "first": "Евгений",
         "second": "Быковский"
       },
       "tg_username": "@EugeneBu",
-      "tg_chat_id": 534211907,
-      "bday": "1991-08-24"
+      "bday": "1991-08-24",
+      "tg_chat_id": 534211907
     }
   ]
 }
